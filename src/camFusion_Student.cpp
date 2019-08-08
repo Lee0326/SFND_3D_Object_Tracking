@@ -154,5 +154,30 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
+    
+    pair<int, int> map_can;
+    for (auto BoundingBox_prev:prevFrame.boundingBoxes)
+    {
+        map<int , size_t> map_count;
+        int max_count = 0;
+        for (auto BoundingBox_curr:currFrame.boundingBoxes)
+        {
+            int train_Box_Idx = BoundingBox_curr.boxID;
+            for (auto match:matches)
+            {
+                if (BoundingBox_prev.roi.contains(prevFrame.keypoints[match.queryIdx].pt) &&
+                BoundingBox_curr.roi.contains(currFrame.keypoints[match.trainIdx].pt)) ++map_count[train_Box_Idx];
+            }
+            if (map_count[train_Box_Idx] > max_count)
+            {
+                max_count = map_count[train_Box_Idx];
+                map_can.first = BoundingBox_prev.boxID;
+                map_can.second = BoundingBox_curr.boxID;
+            }
+        }
+        bbBestMatches.insert(map_can);
+        cout << "the map candidate is " << map_can.first << " and " << map_can.second <<  endl;
+    }
     // ...
+    cout << "the size of bbmatches is: " << bbBestMatches.size() << endl;
 }

@@ -4,10 +4,11 @@ add_definitions(-std=c++11)
 
 set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
+set(OpenCV_DIR ~/opencv/build)
 
 project(camera_fusion)
 
-find_package(OpenCV 3.3.1 REQUIRED)
+find_package(OpenCV REQUIRED)
 
 include_directories(${OpenCV_INCLUDE_DIRS})
 link_directories(${OpenCV_LIBRARY_DIRS})
