@@ -154,19 +154,44 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
+    vector<cv::DMatch> matches_temp = matches;
+    for (vector<cv::DMatch>::iterator it1=matches_temp.begin(); it1!=matches_temp.end(); ++it1)
+    {
+        vector<BoundingBox> enclosed_boxes_prev;
+        vector<BoundingBox> enclosed_boxes_curr;
+        int enclose_count_prev = 0;
+        int enclose_count_curr = 0;
+        for (auto bb_prev:prevFrame.boundingBoxes)
+        {
+            if (bb_prev.roi.contains(prevFrame.keypoints[it1->queryIdx].pt)) enclose_count_prev += 1;
+        }
+        for (auto bb_curr:currFrame.boundingBoxes)
+        {
+            if (bb_curr.roi.contains(currFrame.keypoints[it1->trainIdx].pt)) enclose_count_curr += 1;
+        }
+        // cout << "the previous count is: " << enclose_count_prev << endl;
+        // cout << "the current count is: " << enclose_count_curr << endl;
+        if ((enclose_count_prev != 1) || (enclose_count_curr != 1)) 
+        {
+            matches_temp.erase(it1);
+            it1--;
+        }
+    }
     
+
     pair<int, int> map_can;
     for (auto BoundingBox_prev:prevFrame.boundingBoxes)
     {
         map<int , size_t> map_count;
-        int max_count = 0;
+        int max_count = 10;
         for (auto BoundingBox_curr:currFrame.boundingBoxes)
         {
             int train_Box_Idx = BoundingBox_curr.boxID;
-            for (auto match:matches)
+            for (vector<cv::DMatch>::iterator it=matches_temp.begin(); it!=matches_temp.end(); ++it)
             {
-                if (BoundingBox_prev.roi.contains(prevFrame.keypoints[match.queryIdx].pt) &&
-                BoundingBox_curr.roi.contains(currFrame.keypoints[match.trainIdx].pt)) ++map_count[train_Box_Idx];
+                if (BoundingBox_prev.roi.contains(prevFrame.keypoints[it->queryIdx].pt) &&
+                BoundingBox_curr.roi.contains(currFrame.keypoints[it->trainIdx].pt)) ++map_count[train_Box_Idx];
+
             }
             if (map_count[train_Box_Idx] > max_count)
             {
@@ -176,8 +201,12 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
             }
         }
         bbBestMatches.insert(map_can);
-        cout << "the map candidate is " << map_can.first << " and " << map_can.second <<  endl;
     }
     // ...
-    cout << "the size of bbmatches is: " << bbBestMatches.size() << endl;
+    // for (auto bestmatch:bbBestMatches) 
+    // {
+    //     cout << "the best matches is: " << bestmatch.first << " and " << bestmatch.second << endl;
+    // }
+    // cout << "the size of bouding boxes of prev: " << prevFrame.boundingBoxes.size() << endl;
+    // cout << "the size of bouding boxes of curr: " << currFrame.boundingBoxes.size() << endl;
 }
