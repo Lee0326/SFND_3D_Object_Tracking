@@ -95,11 +95,11 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
             right = right>x ? right : x;
 
             // draw individual point
-            cv::circle(topviewImg, cv::Point(x, y), 4, currColor, -1);
+            cv::circle(topviewImg, cv::Point(x, y), 2, currColor, -1);
         }
 
         // draw enclosing rectangle
-        cv::rectangle(topviewImg, cv::Point(left, top), cv::Point(right, bottom),cv::Scalar(0,0,0), 2);
+        cv::rectangle(topviewImg, cv::Point(left, top), cv::Point(right, bottom),cv::Scalar(0,0,255), 2);
 
         // augment object with some key data
         char str1[200], str2[200];
@@ -148,7 +148,19 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // ...
+    unordered_set<int> indices_prev;
+    unordered_set<int> indices_curr;
+    int maxIterations = 100;
+    float distanceTol = 0.2;
+    double min_prev = 1e8;
+    double min_curr = 1e8;
+    Ransac(indices_prev, lidarPointsPrev, maxIterations, distanceTol);
+    Ransac(indices_curr, lidarPointsCurr, maxIterations, distanceTol);
+    for (auto index:indices_prev)
+       min_prev = lidarPointsPrev[index].x < min_prev? lidarPointsPrev[index].x:min_prev;
+    for (auto index:indices_curr)
+       min_curr = lidarPointsCurr[index].x < min_curr? lidarPointsCurr[index].x:min_curr;
+    TTC = min_curr/(frameRate*(min_prev - min_curr));
 }
 
 
@@ -209,4 +221,62 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
     // }
     // cout << "the size of bouding boxes of prev: " << prevFrame.boundingBoxes.size() << endl;
     // cout << "the size of bouding boxes of curr: " << currFrame.boundingBoxes.size() << endl;
+}
+
+void Ransac(std::unordered_set<int> &indices, std::vector<LidarPoint> &lidarPointsPrev, int maxIterations,const float distanceTol)
+{	
+	// TODO: Fill in this function
+
+	// For max iterations 
+
+	// Randomly sample subset and fit plane
+
+	// Measure distance between every point and fitted line
+	// If distance is smaller than threshold count it as inlier
+
+	// Return indicies of inliers from fitted lane with most inliers
+	while (maxIterations--)
+	{
+		std::unordered_set<int> inliers;
+		while (inliers.size() <3)
+			inliers.insert(rand()%(lidarPointsPrev.size()));
+
+		float x1, x2, x3, y1, y2, y3, z1, z2, z3;
+		auto itr = inliers.begin();
+		x1 = lidarPointsPrev[*itr].x;
+		y1 = lidarPointsPrev[*itr].y;
+		z1 = lidarPointsPrev[*itr].z;
+		itr++;
+		x2 = lidarPointsPrev[*itr].x;
+		y2 = lidarPointsPrev[*itr].y;
+		z2 = lidarPointsPrev[*itr].z;
+		itr++;
+		x3 = lidarPointsPrev[*itr].x;
+		y3 = lidarPointsPrev[*itr].y;
+		z3 = lidarPointsPrev[*itr].z;
+
+		float A = (y2-y1)*(z3-z1)-(z2-z1)*(y3-y1);
+		float B = (z2-z1)*(x3-x1)-(x2-x1)*(z3-z1);
+		float C = (x2-x1)*(y3-y1)-(y2-y1)*(x3-x1);
+		float D = -(A*x1 + B*y1 + C*z1);
+
+		for (int index = 0; index < lidarPointsPrev.size(); index++)
+		{
+			if (inliers.count(index)>0)
+				continue;
+		    LidarPoint point = lidarPointsPrev[index];
+			float x4 = point.x;
+			float y4 = point.y;
+			float z4 = point.z;
+			float d = fabs(A*x4 + B*y4 + C*z4 +D)/sqrt(A*A + B*B + C*C);
+			if (d <= distanceTol)
+				inliers.insert(index);
+		}
+
+		if (inliers.size() > indices.size())
+		{
+			indices = inliers;
+		}
+	}
+    //std::cout << "using own created ransac" << std::endl;
 }
