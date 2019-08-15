@@ -58,6 +58,7 @@ void clusterLidarWithROI(std::vector<BoundingBox> &boundingBoxes, std::vector<Li
         }
 
     } // eof loop over all Lidar points
+
 }
 
 
@@ -75,6 +76,19 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
         // plot Lidar points into top view image
         int top=1e8, left=1e8, bottom=0.0, right=0.0; 
         float xwmin=1e8, ywmin=1e8, ywmax=-1e8;
+
+        // vector<LidarPoint> lidarPoints_temp;
+        // if (it1->lidarPoints.size()>0)
+        // {
+        //     int maxIterations = 99;
+        //     float distanceTol = 0.1;
+        //     unordered_set<int> indices;
+        //     Ransac(indices, it1->lidarPoints, maxIterations, distanceTol);
+        //     //for (auto index:indices) lidarPoints_temp.push_back(it1->lidarPoints[index]);
+        //     cout << "the size of inliers:" << indices.size() << endl;
+        // }
+
+        // for (auto it2 = lidarPoints_temp.begin(); it2 != lidarPoints_temp.end(); ++it2)
         for (auto it2 = it1->lidarPoints.begin(); it2 != it1->lidarPoints.end(); ++it2)
         {
             // world coordinates
@@ -133,7 +147,31 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
-    // ...
+    double total_distance;
+    for (auto match:kptMatches)
+    {
+        total_distance += sqrt((kptsPrev[match.queryIdx].pt.x - kptsCurr[match.trainIdx].pt.x)*
+        (kptsPrev[match.queryIdx].pt.x - kptsCurr[match.trainIdx].pt.x) + 
+        (kptsPrev[match.queryIdx].pt.y - kptsCurr[match.trainIdx].pt.y)* 
+        (kptsPrev[match.queryIdx].pt.y - kptsCurr[match.trainIdx].pt.y)); 
+    }
+    double mean_distantce = total_distance/kptMatches.size();
+    cout << "the distance between matches is:" << mean_distantce << endl;
+
+    std::vector<cv::DMatch>::iterator itr_m = kptMatches.begin();
+    while (itr_m != kptMatches.end())
+    {
+        double distance = sqrt((kptsPrev[itr_m->queryIdx].pt.x - kptsCurr[itr_m->trainIdx].pt.x)*
+        (kptsPrev[itr_m->queryIdx].pt.x - kptsCurr[itr_m->trainIdx].pt.x) + 
+        (kptsPrev[itr_m->queryIdx].pt.y - kptsCurr[itr_m->trainIdx].pt.y)* 
+        (kptsPrev[itr_m->queryIdx].pt.y - kptsCurr[itr_m->trainIdx].pt.y));
+        if (boundingBox.roi.contains(kptsCurr[itr_m->trainIdx].pt) && 
+            abs(distance-mean_distantce) < 200)
+            boundingBox.kptMatches.push_back(*itr_m);
+        ++itr_m;
+    }
+    // cout << "the size of all matches is: " << kptMatches.size() << endl;
+    // cout << "the size of bb  matches is: " << boundingBox.kptMatches.size() << endl;  
 }
 
 
@@ -141,7 +179,49 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
-    // ...
+    // compute distance ratios between all matched keypoints
+    vector<double> distRatios; // stores the distance ratios for all keypoints between curr. and prev. frame
+    for (auto it1 = kptMatches.begin(); it1 != kptMatches.end() - 1; ++it1)
+    { // outer kpt. loop
+
+        // get current keypoint and its matched partner in the prev. frame
+        cv::KeyPoint kpOuterCurr = kptsCurr.at(it1->trainIdx);
+        cv::KeyPoint kpOuterPrev = kptsPrev.at(it1->queryIdx);
+
+        for (auto it2 = kptMatches.begin() + 1; it2 != kptMatches.end(); ++it2)
+        { // inner kpt.-loop
+
+            double minDist = 100.0; // min. required distance
+
+            // get next keypoint and its matched partner in the prev. frame
+            cv::KeyPoint kpInnerCurr = kptsCurr.at(it2->trainIdx);
+            cv::KeyPoint kpInnerPrev = kptsPrev.at(it2->queryIdx);
+
+            // compute distances and distance ratios
+            double distCurr = cv::norm(kpOuterCurr.pt - kpInnerCurr.pt);
+            double distPrev = cv::norm(kpOuterPrev.pt - kpInnerPrev.pt);
+
+            if (distPrev > std::numeric_limits<double>::epsilon() && distCurr >= minDist)
+            { // avoid division by zero
+
+                double distRatio = distCurr / distPrev;
+                distRatios.push_back(distRatio);
+            }
+        } // eof inner loop over all matched kpts
+    }     // eof outer loop over all matched kpts
+
+    // only continue if list of distance ratios is not empty
+    if (distRatios.size() == 0)
+    {
+        TTC = NAN;
+        return;
+    }
+
+    std::sort(distRatios.begin(), distRatios.end());
+    long medIndex = floor(distRatios.size() / 2.0);
+    double medDistRatio = distRatios.size() % 2 == 0 ? (distRatios[medIndex - 1] + distRatios[medIndex]) / 2.0 : distRatios[medIndex]; // compute median dist. ratio to remove outlier influence
+    double dT = 1 / frameRate;
+    TTC = -dT / (1 - medDistRatio);
 }
 
 
@@ -151,7 +231,7 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
     unordered_set<int> indices_prev;
     unordered_set<int> indices_curr;
     int maxIterations = 100;
-    float distanceTol = 0.2;
+    float distanceTol = 0.1;
     double min_prev = 1e8;
     double min_curr = 1e8;
     Ransac(indices_prev, lidarPointsPrev, maxIterations, distanceTol);
@@ -223,7 +303,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
     // cout << "the size of bouding boxes of curr: " << currFrame.boundingBoxes.size() << endl;
 }
 
-void Ransac(std::unordered_set<int> &indices, std::vector<LidarPoint> &lidarPointsPrev, int maxIterations,const float distanceTol)
+void Ransac(std::unordered_set<int> &indices, std::vector<LidarPoint> lidarPointsPrev, int maxIterations,const float distanceTol)
 {	
 	// TODO: Fill in this function
 
@@ -278,5 +358,4 @@ void Ransac(std::unordered_set<int> &indices, std::vector<LidarPoint> &lidarPoin
 			indices = inliers;
 		}
 	}
-    //std::cout << "using own created ransac" << std::endl;
 }
