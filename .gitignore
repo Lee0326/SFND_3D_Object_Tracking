@@ -1,0 +1,5 @@
+#model weights files
+*weights
+
+#build directories
+build/
