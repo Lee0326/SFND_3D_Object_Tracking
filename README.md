@@ -33,3 +33,32 @@ In this final project, you will implement the missing parts in the schematic. To
 2. Make a build directory in the top level project directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./3D_object_tracking`.
+
+## FP.5-Evaluation 1
+
+From the top view perspective of the Lidar points, it can be found that the ego vehicle was coming closer to the preceding vehicle during the first 53 frames, then the relative position stays the same as the vehicle stopped. Therefore, the corresponding TTC should be relatively stable, small and positive during the first stage, while the TTC should be large in the second stage. 
+
+The Lidar TTC of the first and second stages are shown below:
+
+![1566054057069](assets/1566054057069.png)
+
+![1566055373247](assets/1566055373247.png)
+
+The TTC of the second stage is large and because the distance of previous and current frames are quite close, which also makes the results sensitive to small changes of the point cloud distance. 
+
+The TTC in the 13th, 31st and 44th frame is negative, which is not reasonable according to the observation. The point clouds from the top view of the previous and current frame of the 31st frame is:
+
+![1566054326077](assets/1566054326077.png) 
+
+  ![1566054343763](assets/1566054343763.png)
+
+In this scenario, although RANSAC has been implemented with distance threshold of 0.2m to remove outliers, there is still a outlier making the distance of previous frame closer to ego vehicle  and caused a negative TTC estimation. The condition is the  same in the 44th frame, with the related figures shown below:
+
+![1566055127039](assets/1566055127039.png)
+
+![1566055133691](assets/1566055133691.png)
+
+## FP.6-Evaluation 2
+
+All detector / descriptor combinations implemented in previous chapters have been compared with regard to the TTC estimate on a frame-by-frame basis. To facilitate comparison, a spreadsheet and graph should be used to represent the different TTCs.
+
