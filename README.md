@@ -50,9 +50,9 @@ max Iterations argument is set to be 100 and the distance threshold is set to be
 
 The velocity is assumed to be constant when calculating Lidar-based TTC and the calculation formulas are shown below. 
 
-![1566121675173](assets/1566121675173.png)
+<img src="images/ttc_lidar.png" width="640" height="320" />
 
-![1566121692545](assets/1566121692545.png)
+<img src="images/ttc_lidar_form.png" width="640" height="320" />
 
 ## FP.3-Associate Keypoint Correspondences with Bounding Boxes
 
@@ -62,11 +62,11 @@ This part corresponds to `clusterKptMatchesWithROI()`function in the camFusion_S
 
 This part corresponds to `computeTTCCamera()`function in the camFusion_Student.cpp file. The theory is explained by set of formulas below:
 
-![1566123782320](assets/1566123782320.png)
+<img src="images/ttc_cam.png" width="640" height="640" />
 
 Instead of relying on the detection of the vehicle as a whole we now want to analyze its structure on a smaller scale, so the texture key points have been implemented for estimation. 
 
-![1566123940659](assets/1566123940659.png)
+<img src="images/ttc_cam_dist.png" width="640" height="320" />
 
 In (a), a set of keypoints has been detected and the relative distances between keypoints 1-7 have been computed. In (b), 4 keypoints have been matched between successive images (with keypoint 3 being a mismatch) using a higher-dimensional similarity measure called *descriptor* (more about that in the next lesson). The ratio of all relative distances between each other can be used to compute a reliable TTC estimate by replacing the height ratio h1 / h0   with the mean or median of all distance ratios d_k / d_k'.
 
@@ -84,43 +84,44 @@ From the top view perspective of the Lidar points, it can be found that the ego 
 
 The Lidar TTC of the first and second stages are shown respectively below:
 
-![1566125408047](assets/1566125408047.png)
+<img src="images/chart_lidar.png" width="540" height="320" />
 
-![1566125491651](assets/1566125491651.png)
+<img src="images/chart_lidar_2.png" width="540" height="320" />
 
 The absolute TTC values of the second stage are large because the distance of previous and current frames are quite close, which also makes the results sensitive to small changes of the point cloud distance. 
 
 The TTCs in the 13th, 31st and 44th frame are negative, which is not reasonable according to the observation. The point clouds from the top view of the previous and current frame of the 31st frame is:
 
-![1566054326077](assets/1566054326077.png) 
+<img src="images/prev_31.png" width="640" height="320" /> 
 
-  ![1566054343763](assets/1566054343763.png)
+  <img src="images/curr_31.png" width="640" height="320" />
 
 In this scenario, although RANSAC has been implemented with distance threshold of 0.2m to remove outliers, there is still a outlier making the distance of previous frame closer to ego vehicle  and caused a negative TTC estimation. The condition is the  same in the 44th frame, with the related figures shown below:
 
-![1566055127039](assets/1566055127039.png)
+<img src="images/prev_44.png" width="640" height="320" />
 
-![1566055133691](assets/1566055133691.png)
+<img src="images/curr_44.png" width="640" height="320" />
 
 ## FP.6-Evaluation 2
 
 The TTC results of all combinations are illustrated in the spreadsheet below. The gray color means the combination not compatible, and the red color means inf number occurs during deceleration, which is unreasonable.  Since the vehicle stopped after the 54th frame,  only the average TTCs during 1st-53rd fram were calculated for comparison.  
 
-![1566112466488](assets/1566112466488.png)
+<img src="images/spreadsheet.png" width="640" height="150" />
 
 Two way-off scenarios were shown below, which occurred in ORB-ORB and HARRIS-FREAK combination during deceleration respectively. This was attribute to two aspects:
 
 1.  There are too few key points matched in the bounding box to robustly estimate TTC against mismatches. 
 2. There are some outliers enclosed in the bounding box, which are actually not belong to the preceding vehicle. 
 
-![1566114071245](assets/1566114071245.png)
+<img src="images/wayoff.png" width="640" height="320" />
 
 It can be deduced that the more key points matched in the preceding vehicle, the better the TTC results. 
 
 The scenarios of the two recommended combinations which are FAST-FREAK and SIFT-BRISK are shown below. The matched key points are a lot more than that of two combinations mentioned above. Although there are still some outliers, the TTC can be estimated relatively accurate if the median distance ratio was picked for calculation. From the perspective of safety, the SIFT-BRISK combination is more suitable because the estimated TTC was smaller and more conservative. If the calculation time is the principal contradiction, the SIFT-BRISK is obviously better choice. 
 
-![1566115048463](assets/1566115048463.png)
+<img src="images/recommend.png" width="640" height="320" />
 
 The variation of TTCs during deceleration process of the two recommended combinations:
 
-![1566116175580](assets/1566116175580.png)
+<img src="images/chart_recom.png" width="540" height="320" />
+
